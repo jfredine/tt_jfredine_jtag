@@ -5,7 +5,7 @@
 
 `default_nettype none
 
-module tt_um_example (
+module tt_um_jfredine_jtag (
     input  wire [7:0] ui_in,    // Dedicated inputs
     output wire [7:0] uo_out,   // Dedicated outputs
     input  wire [7:0] uio_in,   // IOs: Input path
@@ -16,12 +16,30 @@ module tt_um_example (
     input  wire       rst_n     // reset_n - low to reset
 );
 
+  wire trst;
+  wire tms;
+  wire tdi;
+  wire tdo;
+
   // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
+  assign uo_out  = {7'h0, tdo};
   assign uio_out = 0;
   assign uio_oe  = 0;
 
+
   // List all unused inputs to prevent warnings
-  wire _unused = &{ena, clk, rst_n, 1'b0};
+  wire _unused = &{ena, uio_in, ui_in[7:2]};
+
+  assign trst = !rst_n;
+  assign tdi = ui[1]
+  assign tms = ui[0]
+
+  jtag jtag_i(
+    .trst(trst),
+    .tck(clk),
+    .tms(tms),
+    .tdi(tdi),
+    .tdo(tdo)
+  );
 
 endmodule
