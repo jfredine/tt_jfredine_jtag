@@ -31,8 +31,8 @@ module tt_um_jfredine_jtag (
   wire _unused = &{ena, uio_in, ui_in[7:2]};
 
   assign trst = !rst_n;
-  assign tdi = ui[1]
-  assign tms = ui[0]
+  assign tdi = ui_in[1];
+  assign tms = ui_in[0];
 
   jtag jtag_i(
     .trst(trst),
