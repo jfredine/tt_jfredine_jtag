@@ -28,10 +28,14 @@
 `define JTAG_EXIT2_IR   4'he
 `define JTAG_UPDATE_IR  4'hf
 
-`define JTAG_NOP        2'h0
-`define JTAG_SCRATCH_8  2'h1
-`define JTAG_SCRATCH_16 2'h2
-`define JTAG_SCRATCH_32 2'h3
+`define JTAG_NOP        6'h0
+`define JTAG_SCRATCH_8  6'h1
+`define JTAG_SCRATCH_16 6'h2
+`define JTAG_SCRATCH_32 6'h3
+`define JTAG_IDCODE     6'h1e
+`define JTAG_BYPASS     6'h1f
+
+`define JTAG_IDCODE_DATA 32'hbeefcafe
 
 module jtag (
     input  wire trst,
@@ -42,9 +46,11 @@ module jtag (
 );
     reg  [ 3:0] jtag_state;
     reg  [ 3:0] next_jtag_state;
-    reg  [ 1:0] ir;
 
-    reg  [31:0] scratch;
+    reg  [ 5:0] ir_shift;
+    reg  [ 5:0] ir;
+
+    reg  [31:0] dr_shift;
     reg  [ 7:0] scratch_8;
     reg  [15:0] scratch_16;
     reg  [31:0] scratch_32;
@@ -101,9 +107,17 @@ module jtag (
     // shift IR
     always @(posedge tck) begin
         if (jtag_state == `JTAG_CAPTURE_IR) begin
-            ir <= `JTAG_NOP;
+            ir_shift <= 6'h1;
         end else if (jtag_state == `JTAG_SHIFT_IR) begin
-            ir <= {tdi, ir[1]};
+            ir_shift <= {tdi, ir_shift[5:1]};
+        end
+    end
+
+    always @(negedge tck) begin
+        if (jtag_state == `JTAG_RESET) begin
+            ir <= `JTAG_IDCODE;
+        end else if (jtag_state == `JTAG_UPDATE_IR) begin
+            ir <= ir_shift;
         end
     end
 
@@ -111,21 +125,34 @@ module jtag (
     always @(posedge tck) begin
         if (jtag_state == `JTAG_CAPTURE_DR) begin
             case (ir)
-                `JTAG_SCRATCH_8:  scratch <= {24'h0, scratch_8};
-                `JTAG_SCRATCH_16: scratch <= {16'h0, scratch_16};
-                default:          scratch <= scratch_32;
+                `JTAG_SCRATCH_8:  dr_shift <= {24'h0, scratch_8};
+                `JTAG_SCRATCH_16: dr_shift <= {16'h0, scratch_16};
+                `JTAG_SCRATCH_32: dr_shift <= scratch_32;
+                `JTAG_IDCODE:     dr_shift <= `JTAG_IDCODE_DATA;
+                default:          dr_shift <= 32'h0;
             endcase
         end else if (jtag_state == `JTAG_SHIFT_DR) begin
             case (ir)
-                `JTAG_SCRATCH_8:  scratch <= {24'h0, tdi, scratch[7:1]};
-                `JTAG_SCRATCH_16: scratch <= {16'h0, tdi, scratch[15:1]};
-                default:          scratch <= {tdi, scratch[31:1]};
+                `JTAG_BYPASS:     dr_shift <= {31'h0, tdi};
+                `JTAG_SCRATCH_8:  dr_shift <= {24'h0, tdi, dr_shift[7:1]};
+                `JTAG_SCRATCH_16: dr_shift <= {16'h0, tdi, dr_shift[15:1]};
+                default:          dr_shift <= {tdi, dr_shift[31:1]};
             endcase
         end else if (jtag_state == `JTAG_UPDATE_DR) begin
             case (ir)
-                `JTAG_SCRATCH_8:  scratch_8  <= scratch[7:0];
-                `JTAG_SCRATCH_16: scratch_16 <= scratch[15:0];
-                default:          scratch_32 <= scratch;
+                `JTAG_SCRATCH_8:  scratch_8  <= dr_shift[7:0];
+                `JTAG_SCRATCH_16: scratch_16 <= dr_shift[15:0];
+                `JTAG_SCRATCH_32: scratch_32 <= dr_shift;
+            endcase
+        end
+    end
+
+    always @(negedge tck) begin
+        if (jtag_state == `JTAG_UPDATE_DR) begin
+            case (ir)
+                `JTAG_SCRATCH_8:  scratch_8  <= dr_shift[7:0];
+                `JTAG_SCRATCH_16: scratch_16 <= dr_shift[15:0];
+                `JTAG_SCRATCH_32: scratch_32 <= dr_shift;
             endcase
         end
     end
@@ -136,10 +163,10 @@ module jtag (
     always @(negedge tck) begin
         if ((jtag_state == `JTAG_SHIFT_IR)
             || (jtag_state == `JTAG_EXIT1_IR)) begin
-            tdo_int <= ir[0];
+            tdo_int <= ir_shift[0];
         end else if ((jtag_state == `JTAG_SHIFT_DR)
                      || (jtag_state == `JTAG_EXIT1_IR)) begin
-            tdo_int <= scratch[0];
+            tdo_int <= dr_shift[0];
         end
     end
 
