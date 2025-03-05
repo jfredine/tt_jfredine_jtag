@@ -9,12 +9,14 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+The chip implements a tiny JTAG interface following the ieee 1149.1
+specification.
 
 ## How to test
 
-Explain how to use your project
+Clock and reset inputs are used for tck and trst.  User must manipulate tdi
+and tms through switches
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+switches
