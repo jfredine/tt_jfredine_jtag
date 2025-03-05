@@ -138,22 +138,18 @@ module jtag (
                 `JTAG_SCRATCH_16: dr_shift <= {16'h0, tdi, dr_shift[15:1]};
                 default:          dr_shift <= {tdi, dr_shift[31:1]};
             endcase
-        end else if (jtag_state == `JTAG_UPDATE_DR) begin
-            case (ir)
-                `JTAG_SCRATCH_8:  scratch_8  <= dr_shift[7:0];
-                `JTAG_SCRATCH_16: scratch_16 <= dr_shift[15:0];
-                `JTAG_SCRATCH_32: scratch_32 <= dr_shift;
-            endcase
         end
     end
 
     always @(negedge tck) begin
         if (jtag_state == `JTAG_UPDATE_DR) begin
-            case (ir)
-                `JTAG_SCRATCH_8:  scratch_8  <= dr_shift[7:0];
-                `JTAG_SCRATCH_16: scratch_16 <= dr_shift[15:0];
-                `JTAG_SCRATCH_32: scratch_32 <= dr_shift;
-            endcase
+            if (ir == `JTAG_SCRATCH_8) begin
+                scratch_8  <= dr_shift[7:0];
+            end else if (ir == `JTAG_SCRATCH_16) begin
+                scratch_16 <= dr_shift[15:0];
+            end else if (ir == `JTAG_SCRATCH_32) begin
+                scratch_32 <= dr_shift;
+            end
         end
     end
 
