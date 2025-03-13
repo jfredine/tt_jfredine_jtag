@@ -32,17 +32,18 @@
 `define JTAG_SCRATCH_8  6'h1
 `define JTAG_SCRATCH_16 6'h2
 `define JTAG_SCRATCH_32 6'h3
-`define JTAG_IDCODE     6'h1e
-`define JTAG_BYPASS     6'h1f
+`define JTAG_IDCODE     6'h3e
+`define JTAG_BYPASS     6'h3f
 
 `define JTAG_IDCODE_DATA 32'hbeefcafe
 
 module jtag (
-    input  wire trst,
-    input  wire tck,
-    input  wire tms,
-    input  wire tdi,
-    output wire tdo
+    input  wire       trst,
+    input  wire       tck,
+    input  wire       tms,
+    input  wire       tdi,
+    output wire       tdo,
+    output wire [3:0] state
 );
     reg  [ 3:0] jtag_state;
     reg  [ 3:0] next_jtag_state;
@@ -54,6 +55,7 @@ module jtag (
     reg  [ 7:0] scratch_8;
     reg  [15:0] scratch_16;
     reg  [31:0] scratch_32;
+    reg         next_tdo_int;
     reg         tdo_int;
 
     // JTAG state machine
@@ -154,18 +156,18 @@ module jtag (
     end
 
     // shift out
-    // the shift out (done on negedge) lags the shift in (done on posedge)
-    // so we still need to do the final shift out if the state is EXIT1
-    always @(negedge tck) begin
-        if ((jtag_state == `JTAG_SHIFT_IR)
-            || (jtag_state == `JTAG_EXIT1_IR)) begin
-            tdo_int <= ir_shift[0];
-        end else if ((jtag_state == `JTAG_SHIFT_DR)
-                     || (jtag_state == `JTAG_EXIT1_IR)) begin
-            tdo_int <= dr_shift[0];
+    always @(posedge tck) begin
+        if (jtag_state == `JTAG_SHIFT_IR) begin
+            next_tdo_int <= ir_shift[0];
+        end else if (jtag_state == `JTAG_SHIFT_DR) begin
+            next_tdo_int <= dr_shift[0];
         end
+    end
+    always @(negedge tck) begin
+        tdo_int <= next_tdo_int;
     end
 
     assign tdo = tdo_int;
+    assign state = jtag_state;
 
 endmodule

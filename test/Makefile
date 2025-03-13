@@ -7,6 +7,8 @@ TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
 PROJECT_SOURCES = project.v jtag.v
 
+export COCOTB_RESOLVE_X := RANDOM
+
 ifneq ($(GATES),yes)
 
 # RTL simulation:

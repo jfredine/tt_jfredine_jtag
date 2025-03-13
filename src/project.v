@@ -16,16 +16,16 @@ module tt_um_jfredine_jtag (
     input  wire       rst_n     // reset_n - low to reset
 );
 
-  wire trst;
-  wire tms;
-  wire tdi;
-  wire tdo;
+  wire       trst;
+  wire       tms;
+  wire       tdi;
+  wire       tdo;
+  wire [3:0] jtag_state;
 
   // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = {7'h0, tdo};
+  assign uo_out  = {3'h0, jtag_state, tdo};
   assign uio_out = 0;
   assign uio_oe  = 0;
-
 
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, uio_in, ui_in[7:2]};
@@ -39,7 +39,8 @@ module tt_um_jfredine_jtag (
     .tck(clk),
     .tms(tms),
     .tdi(tdi),
-    .tdo(tdo)
+    .tdo(tdo),
+    .state(jtag_state)
   );
 
 endmodule

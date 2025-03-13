@@ -27,6 +27,25 @@ module tb ();
   wire VGND = 1'b0;
 `endif
 
+  reg        trst;
+  reg        tms;
+  reg        tdi;
+  wire       tdo;
+  wire [3:0] jtag_state;
+
+  assign jtag_state = uo_out[4:1];
+  assign tdo = uo_out[0];
+
+  always @(*) begin
+      ui_in[0] = tms;
+  end
+  always @(*) begin
+      ui_in[1] = tdi;
+  end
+  always @(*) begin
+      rst_n = !trst;
+  end
+
   // Replace tt_um_example with your module name:
   tt_um_jfredine_jtag user_project (
 
