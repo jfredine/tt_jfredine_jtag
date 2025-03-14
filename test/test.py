@@ -21,47 +21,44 @@ async def jtag_xaction(dut, trst_pattern, tms_pattern, tdi_pattern):
     tdo_patterns = ()
     curr_tdo_pattern = ()
 
-    # synchronize to known clock state
-    # Not sure if it is cocotb or the simulator but when verilator is used
-    # and we wait on a rising edge, there have been cases where data signals
-    # have already been updated according to this edge.  In the same model on
-    # Icarus the data signals had not yet propogated.  For this reason we
-    # should asume we do not know if the model has fully relaxed or not and
-    # be sure to move to a safe state after any edge
-    prev_jtag_state = dut.jtag_state.value
+    # synchronize to falling edge clock state
     if dut.clk.value == 1:
         await cocotb.triggers.FallingEdge(dut.clk)
-    await cocotb.triggers.Timer(10, units="ns")
-    dut._log.debug("prev_jtag_state = %s, state = %s",
-                   prev_jtag_state, dut.jtag_state.value)
+    curr_state = dut.jtag_state.value
+    prev_state = curr_state
 
-    for i in range(max_len):
-        # inject new inputs
-        dut.trst.value = trst_pattern[i]
-        dut.tms.value = tms_pattern[i]
-        dut.tdi.value = tdi_pattern[i]
-        dut._log.debug("(trst, tms, tdi) = (%s, %s, %s)",
-                       trst_pattern[i], tms_pattern[i], tdi_pattern[i])
+    for (trst, tms, tdi) in zip(trst_pattern, tms_pattern, tdi_pattern):
+        # inject new inputs at falling edge of clock
+        dut.trst.value = trst
+        dut.tms.value = tms
+        dut.tdi.value = tdi
+        dut._log.debug("(trst, tms, tdi) = (%s, %s, %s)", trst, tms, tdi)
 
-        # wait for injections to take effect
-        prev_jtag_state = dut.jtag_state.value
-        await cocotb.triggers.FallingEdge(dut.clk)
-        await cocotb.triggers.Timer(10, units="ns")
+        # wait for rising edge to possibly sample tdo
+        await cocotb.triggers.RisingEdge(dut.clk)
 
-        dut._log.debug("-- Edge --")
-        dut._log.debug("prev_state = %s, state = %s",
-                       prev_jtag_state, dut.jtag_state.value)
+        dut._log.debug("-- After rising Edge --")
+        dut._log.debug("prev_state = %s, curr_state = %s",
+                       prev_state, curr_state)
 
         # sample output if in shift state
-        if (dut.jtag_state.value == 4) and (prev_jtag_state != 4):
+        if (curr_state == 4) and (prev_state != 4):
             curr_tdo_pattern = ()
-        elif (prev_jtag_state == 4):
+        elif (prev_state == 4):
             dut._log.debug("tdo = %s", dut.tdo.value)
             curr_tdo_pattern = curr_tdo_pattern + (dut.tdo.value,)
             dut._log.debug("curr_tdo_pattern = %s", curr_tdo_pattern)
             if dut.jtag_state.value != 4:
                 dut._log.debug("adding tdo_pattern = %s", curr_tdo_pattern)
                 tdo_patterns = tdo_patterns + (curr_tdo_pattern,)
+
+        # wait for falling edge to drive new inputs
+        await cocotb.triggers.FallingEdge(dut.clk)
+        prev_state = curr_state
+        curr_state = dut.jtag_state.value
+        dut._log.debug("-- After falling Edge --")
+        dut._log.debug("prev_state = %s, curr_state = %s",
+                       prev_state, curr_state)
 
     return tdo_patterns
 
